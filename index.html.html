@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mechanized Rattan Peeling Machine — 3D Simulator</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #121820;
+      color: #e2e8f0;
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      user-select: none;
+    }
+    #canvas-container {
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+    }
+
+    /* UI Overlay Top Bar */
+    #top-bar {
+      position: absolute;
+      top: 16px;
+      left: 20px;
+      right: 20px;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+    }
+    .header-card {
+      background: rgba(18, 26, 36, 0.88);
+      backdrop-filter: blur(10px);
+      border: 1px solid #2a3b4f;
+      border-radius: 10px;
+      padding: 10px 18px;
+      pointer-events: all;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    .title {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .title span { color: #38bdf8; font-weight: 500; font-size: 13px; }
+    .subtitle { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.8px; margin-top: 2px; }
+
+    /* Control Panel (Top Right) */
+    #control-panel {
+      position: absolute;
+      top: 16px;
+      right: 20px;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: all;
+      width: 320px;
+    }
+    .panel-card {
+      background: rgba(18, 26, 36, 0.9);
+      backdrop-filter: blur(12px);
+      border: 1px solid #2a3b4f;
+      border-radius: 10px;
+      padding: 14px 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+    }
+    .panel-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: #38bdf8;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Industrial Control Box Style Buttons */
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1.2fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .industrial-btn {
+      height: 48px;
+      border-radius: 50%;
+      width: 48px;
+      margin: 0 auto;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: #fff;
+      transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.3);
+      position: relative;
+    }
+    .btn-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .btn-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+    }
+
+    /* Green START Button */
+    .btn-start {
+      background: radial-gradient(circle at 35% 35%, #22c55e, #15803d);
+      border: 2px solid #166534;
+    }
+    .btn-start:hover { transform: scale(1.06); box-shadow: 0 0 16px rgba(34, 197, 94, 0.6); }
+    .btn-start:active { transform: scale(0.95); box-shadow: inset 0 3px 6px rgba(0,0,0,0.6); }
+
+    /* Red STOP Button */
+    .btn-stop {
+      background: radial-gradient(circle at 35% 35%, #ef4444, #b91c1c);
+      border: 2px solid #991b1b;
+    }
+    .btn-stop:hover { transform: scale(1.06); box-shadow: 0 0 16px rgba(239, 68, 68, 0.6); }
+    .btn-stop:active { transform: scale(0.95); box-shadow: inset 0 3px 6px rgba(0,0,0,0.6); }
+
+    /* Yellow Mushroom EMERGENCY STOP Button */
+    .btn-estop {
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #eab308, #a16207);
+      border: 3px solid #854d0e;
+      box-shadow: 0 6px 16px rgba(234, 179, 8, 0.4), inset 0 3px 6px rgba(255,255,255,0.4);
+    }
+    .btn-estop:hover { transform: scale(1.06); box-shadow: 0 0 20px rgba(234, 179, 8, 0.8); }
+    .btn-estop:active { transform: scale(0.92); }
+    .btn-estop.active-lock {
+      animation: estop-pulse 0.8s infinite alternate;
+      border-color: #ef4444;
+      background: radial-gradient(circle at 35% 35%, #ef4444, #991b1b);
+    }
+    @keyframes estop-pulse {
+      from { box-shadow: 0 0 10px rgba(239, 68, 68, 0.6); }
+      to { box-shadow: 0 0 25px rgba(239, 68, 68, 1); }
+    }
+
+    /* Live Telemetry Display */
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .telem-box {
+      background: #0d131a;
+      border: 1px solid #1e2c3a;
+      border-radius: 6px;
+      padding: 8px 10px;
+    }
+    .telem-lbl { font-size: 9px; color: #64748b; text-transform: uppercase; font-weight: 600; }
+    .telem-val { font-size: 16px; font-weight: 700; color: #38bdf8; font-family: monospace; margin-top: 2px; }
+
+    /* Sliders */
+    .slider-group { margin-top: 10px; }
+    .slider-row { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px; color: #cbd5e1; }
+    input[type=range] {
+      width: 100%;
+      height: 5px;
+      background: #1e293b;
+      border-radius: 4px;
+      outline: none;
+      -webkit-appearance: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: #38bdf8;
+      cursor: pointer;
+      box-shadow: 0 0 8px #38bdf8;
+    }
+
+    /* Camera Preset Bar (Bottom Center) */
+    #cam-bar {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      gap: 8px;
+      background: rgba(18, 26, 36, 0.88);
+      backdrop-filter: blur(10px);
+      border: 1px solid #2a3b4f;
+      border-radius: 30px;
+      padding: 6px 10px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      pointer-events: all;
+    }
+    .cam-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: #94a3b8;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .cam-btn:hover { color: #fff; background: rgba(56, 189, 248, 0.15); border-color: #38bdf8; }
+    .cam-btn.active { background: #38bdf8; color: #0f172a; font-weight: 700; }
+
+    /* Hover Component Tooltip */
+    #tooltip {
+      position: absolute;
+      z-index: 100;
+      pointer-events: none;
+      background: rgba(13, 19, 26, 0.95);
+      backdrop-filter: blur(8px);
+      border: 1px solid #38bdf8;
+      border-radius: 8px;
+      padding: 10px 14px;
+      max-width: 280px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      transform: translate(-50%, -120%);
+      transition: opacity 0.2s, transform 0.2s;
+      opacity: 0;
+      display: block;
+    }
+    #tooltip.visible { opacity: 1; transform: translate(-50%, -130%); }
+    #tooltip .tt-title { font-size: 13px; font-weight: 700; color: #38bdf8; margin-bottom: 3px; }
+    #tooltip .tt-desc { font-size: 11px; color: #cbd5e1; line-height: 1.4; }
+    #tooltip::after {
+      content: '';
+      position: absolute;
+      bottom: -6px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-width: 6px 6px 0;
+      border-style: solid;
+      border-color: #38bdf8 transparent transparent transparent;
+      display: block;
+      width: 0;
+    }
+
+    /* Status Banner */
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: rgba(34, 197, 94, 0.15);
+      color: #22c55e;
+      border: 1px solid #22c55e;
+    }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; }
+  </style>
+</head>
+<body>
+  <div id="top-bar">
+    <div class="header-card">
+      <div class="title">
+        MECHANIZED RATTAN PEELING MACHINE
+        <span class="status-pill" id="state-pill"><span class="status-dot" id="state-dot"></span><span id="state-text">STANDBY</span></span>
+      </div>
+      <div class="subtitle">1800 × 850 × 1000 mm MS Bench-Top Peeling Station // 3-Jaw Rotary Chuck</div>
+    </div>
+  </div>
+
+  <div id="control-panel">
+    <div class="panel-card">
+      <div class="panel-title">OPERATOR CONTROL BOX</div>
+      <div class="button-row">
+        <div class="btn-wrap">
+          <button class="industrial-btn btn-start" id="btn-start" onclick="startMachine()">START</button>
+          <span class="btn-label">START</span>
+        </div>
+        <div class="btn-wrap">
+          <button class="industrial-btn btn-stop" id="btn-stop" onclick="stopMachine()">STOP</button>
+          <span class="btn-label">STOP</span>
+        </div>
+        <div class="btn-wrap">
+          <button class="industrial-btn btn-estop" id="btn-estop" onclick="emergencyStop()">E-STOP</button>
+          <span class="btn-label" style="color:#eab308;">EMERGENCY</span>
+        </div>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-row">
+          <span>Axial Feed Speed</span>
+          <span id="feed-val" style="color:#38bdf8; font-weight:700;">6.0 m/min</span>
+        </div>
+        <input type="range" id="feed-slider" min="1" max="10" step="0.5" value="6" oninput="updateFeedSpeed(this.value)">
+      </div>
+
+      <div class="telemetry-grid">
+        <div class="telem-box">
+          <div class="telem-lbl">Laser Sensed ⌀</div>
+          <div class="telem-val" id="dia-val">14.2 mm</div>
+        </div>
+        <div class="telem-box">
+          <div class="telem-lbl">Chuck Peeling RPM</div>
+          <div class="telem-val" id="rpm-val">0 RPM</div>
+        </div>
+        <div class="telem-box">
+          <div class="telem-lbl">Peel Thickness</div>
+          <div class="telem-val">1.50 mm</div>
+        </div>
+        <div class="telem-box">
+          <div class="telem-lbl">Reel Take-up</div>
+          <div class="telem-val" id="reel-val">0.0 m</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="cam-bar">
+    <button class="cam-btn active" onclick="setCamera('iso')">Isometric View</button>
+    <button class="cam-btn" onclick="setCamera('chuck')">Focus Chuck (Close-Up)</button>
+    <button class="cam-btn" onclick="setCamera('sensor')">Focus Sensor</button>
+    <button class="cam-btn" onclick="setCamera('feed')">Infeed Station</button>
+    <button class="cam-btn" onclick="setCamera('motor')">Under-Frame Motor</button>
+  </div>
+
+  <div id="tooltip">
+    <div class="tt-title" id="tt-title">Component</div>
+    <div class="tt-desc" id="tt-desc">Description</div>
+  </div>
+
+  <div id="canvas-container"></div>
+
+  <!-- CDN Dependencies -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+  <script>
+    // =========================================================================
+    // GLOBAL SIMULATION STATE & PARAMETERS
+    // =========================================================================
+    let scene, camera, renderer, controls;
+    let machineState = 'STOPPED'; // 'STOPPED', 'RUNNING', 'STOPPING', 'EMERGENCY'
+    let currentSpeedRatio = 0.0;  // 0.0 to 1.0 (smooth acceleration/deceleration)
+    let feedSpeedSetting = 6.0;   // m/min
+    let caneTravelDist = 0.0;
+    let totalHarvestedSkin = 0.0;
+    let reelRadiusGrowth = 0.0;
+
+    // Interactive Components Metadata for Hover Tooltip
+    const COMPONENT_METADATA = {
+      baseFrame: {
+        name: "Base Frame & Structure",
+        desc: "1800×850×1000mm grey-blue powder-coated MS welded steel frame on 4 adjustable leveling feet with open box-truss legs."
+      },
+      infeedRollers: {
+        name: "Infeed Rollers Station (Entry on Right)",
+        desc: "2 pairs of powered chrome V-groove rollers (top+bottom) gripping raw cane entering from the right, self-centering it and axially pushing it into the laser sensor and chuck."
+      },
+      peelingChuck: {
+        name: "3-Jaw Rotary Peeling Chuck Assembly",
+        desc: "Continuous rotary chuck body holding 3 jaws with angled HSS blades (12° rake) that shave 5mm continuous skin strips as raw cane feeds through axially."
+      },
+      stepperMotor: {
+        name: "NEMA17 Stepper Motor & Aperture Actuator",
+        desc: "42mm stepper motor directly coupled to chuck scroll pinion for dynamic radial blade aperture tracking based on real-time laser diameter readings."
+      },
+      diameterSensor: {
+        name: "VL53L0X Laser Diameter Sensor",
+        desc: "Non-contact laser Time-of-Flight sensor projecting a calibrated red beam to measure raw cane diameter in real time ahead of the peeling chuck."
+      },
+      outfeedRollers: {
+        name: "Outfeed Rollers Station (Exit on Left)",
+        desc: "Speed-matched pull-through pinch roller station on the left maintaining axial tension and extracting the smooth peeled cane core rod."
+      },
+      takeupReel: {
+        name: "Motorized Take-Up Reel (Skin Collector)",
+        desc: "Overhead reel on angled post winding continuous peeled skin ribbons as they emerge from the cutting blades under synchronized tension."
+      },
+      inductionMotor: {
+        name: "0.75 kW AC Induction Motor",
+        desc: "Under-frame 230V 50Hz single-phase induction motor driving infeed/outfeed transmission via ribbed V-belt and pulleys."
+      },
+      controlBox: {
+        name: "Operator Control Box",
+        desc: "IP54 steel console next to the infeed station featuring status LCD display, START, STOP, and latched EMERGENCY STOP pushbuttons."
+      }
+    };
+
+    // 3D Objects References
+    let interactiveObjects = [];
+    let chuckRotorGroup, infeedRollerMeshes = [], outfeedRollerMeshes = [];
+    let motorPulley, intermediatePulley, beltTorus;
+    let takeupReelRotor, takeupCoilMesh, ribbonMesh;
+    let caneGroup, rawCaneMesh, peeledCaneMesh;
+    let laserLineMesh, laserDotMesh;
+    let particleSystem, particleGeo, particlePositions, particleVelocities;
+    const MAX_PARTICLES = 120;
+
+    // Raycaster for Hover Tooltips
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    const tooltip = document.getElementById('tooltip');
+    const ttTitle = document.getElementById('tt-title');
+    const ttDesc = document.getElementById('tt-desc');
+
+    // =========================================================================
+    // INITIALIZATION & SCENE SETUP
+    // =========================================================================
+    function init() {
+      const container = document.getElementById('canvas-container');
+
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0e141c);
+      scene.fog = new THREE.FogExp2(0x0e141c, 0.0055);
+
+      camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.5, 500);
+      camera.position.set(95, 65, 115);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.15;
+      container.appendChild(renderer.domElement);
+
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.06;
+      controls.maxPolarAngle = Math.PI / 2 + 0.02;
+      controls.minDistance = 15;
+      controls.maxDistance = 240;
+      controls.target.set(0, 36, 0);
+
+      setupLighting();
+      buildEnvironment();
+      buildMachineModel();
+      buildParticleSystem();
+
+      window.addEventListener('resize', onWindowResize);
+      window.addEventListener('mousemove', onMouseMove);
+
+      animate();
+    }
+
+    function setupLighting() {
+      const ambLight = new THREE.AmbientLight(0xdbeafe, 0.65);
+      scene.add(ambLight);
+
+      const mainLight = new THREE.DirectionalLight(0xffffff, 1.3);
+      mainLight.position.set(60, 110, 70);
+      mainLight.castShadow = true;
+      mainLight.shadow.mapSize.width = 2048;
+      mainLight.shadow.mapSize.height = 2048;
+      mainLight.shadow.camera.near = 10;
+      mainLight.shadow.camera.far = 250;
+      mainLight.shadow.camera.left = -90;
+      mainLight.shadow.camera.right = 90;
+      mainLight.shadow.camera.top = 90;
+      mainLight.shadow.camera.bottom = -90;
+      mainLight.shadow.bias = -0.0005;
+      scene.add(mainLight);
+
+      const blueFill = new THREE.DirectionalLight(0x38bdf8, 0.4);
+      blueFill.position.set(-80, 50, -60);
+      scene.add(blueFill);
+
+      const rimLight = new THREE.DirectionalLight(0x818cf8, 0.35);
+      rimLight.position.set(0, -20, -80);
+      scene.add(rimLight);
+    }
+
+    function buildEnvironment() {
+      // Floor plane with grid
+      const floorGeo = new THREE.PlaneGeometry(350, 350);
+      const floorMat = new THREE.MeshStandardMaterial({
+        color: 0x111923,
+        roughness: 0.85,
+        metalness: 0.2
+      });
+      const floor = new THREE.Mesh(floorGeo, floorMat);
+      floor.rotation.x = -Math.PI / 2;
+      floor.receiveShadow = true;
+      scene.add(floor);
+
+      const grid = new THREE.GridHelper(300, 60, 0x1e2e3d, 0x141f2a);
+      grid.position.y = 0.05;
+      scene.add(grid);
+    }
+
+    // =========================================================================
+    // 3D MACHINE ASSEMBLY (COMPONENTS 1 THROUGH 9)
+    // =========================================================================
+    function buildMachineModel() {
+      // Shared PBR Materials
+      const matFrame = new THREE.MeshStandardMaterial({ color: 0x3b4c5a, roughness: 0.5, metalness: 0.65 }); // Grey-blue powder-coated MS
+      const matChrome = new THREE.MeshStandardMaterial({ color: 0xdde4eb, roughness: 0.2, metalness: 0.9 }); // Bright steel / Chrome
+      const matChuckBody = new THREE.MeshStandardMaterial({ color: 0x8a9ba8, roughness: 0.3, metalness: 0.8 }); // Machined cast steel
+      const matDarkMetal = new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.6, metalness: 0.8 }); // Dark steel
+      const matBlackPlastic = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.7, metalness: 0.2 }); // NEMA17 & Sensor
+      const matInductionMotor = new THREE.MeshStandardMaterial({ color: 0x0e5a6f, roughness: 0.4, metalness: 0.5 }); // Dark teal/blue
+      const matControlBox = new THREE.MeshStandardMaterial({ color: 0xc8d1d9, roughness: 0.45, metalness: 0.5 }); // Light grey metal
+      const matBrass = new THREE.MeshStandardMaterial({ color: 0xd4af37, roughness: 0.35, metalness: 0.8 });
+      const matRawCane = new THREE.MeshStandardMaterial({ color: 0x9b7042, roughness: 0.85, metalness: 0.05 }); // Bark tan
+      const matPeeledCane = new THREE.MeshStandardMaterial({ color: 0xf5eedc, roughness: 0.4, metalness: 0.02 }); // Peeled light-cream
+
+      // -----------------------------------------------------------------------
+      // 1. BASE FRAME: 1800×850×1000mm MS steel welded frame with leveling feet
+      // Scale: 1 unit = 10mm -> 180L × 85W × 100H. Bed surface at Y = 36
+      // -----------------------------------------------------------------------
+      const frameGroup = new THREE.Group();
+      frameGroup.userData = { compKey: 'baseFrame' };
+
+      // Top main bed table
+      const bedGeo = new THREE.BoxGeometry(170, 3, 46);
+      const bed = new THREE.Mesh(bedGeo, matFrame);
+      bed.position.set(0, 35, 0);
+      bed.castShadow = true;
+      bed.receiveShadow = true;
+      frameGroup.add(bed);
+
+      // Open box-truss legs & cross braces (4 corner posts)
+      const legGeo = new THREE.BoxGeometry(4.5, 33, 4.5);
+      const legPositions = [
+        [-78, 17.5, -19], [78, 17.5, -19],
+        [-78, 17.5, 19], [78, 17.5, 19]
+      ];
+      legPositions.forEach(pos => {
+        const leg = new THREE.Mesh(legGeo, matFrame);
+        leg.position.set(...pos);
+        leg.castShadow = true;
+        frameGroup.add(leg);
+
+        // Adjustable leveling foot at bottom
+        const footScrew = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 2.5, 12), matChrome);
+        footScrew.position.set(pos[0], 1.5, pos[2]);
+        frameGroup.add(footScrew);
+
+        const footPad = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.5, 1.2, 16), matDarkMetal);
+        footPad.position.set(pos[0], 0.6, pos[2]);
+        footPad.castShadow = true;
+        frameGroup.add(footPad);
+      });
+
+      // Lower welded horizontal tie bars
+      const longTieGeo = new THREE.BoxGeometry(156, 3, 3);
+      const tieFront = new THREE.Mesh(longTieGeo, matFrame);
+      tieFront.position.set(0, 9, 19);
+      frameGroup.add(tieFront);
+      const tieBack = new THREE.Mesh(longTieGeo, matFrame);
+      tieBack.position.set(0, 9, -19);
+      frameGroup.add(tieBack);
+
+      const crossTieGeo = new THREE.BoxGeometry(3, 3, 38);
+      const tieLeft = new THREE.Mesh(crossTieGeo, matFrame);
+      tieLeft.position.set(-78, 9, 0);
+      frameGroup.add(tieLeft);
+      const tieRight = new THREE.Mesh(crossTieGeo, matFrame);
+      tieRight.position.set(78, 9, 0);
+      frameGroup.add(tieRight);
+
+      scene.add(frameGroup);
+      interactiveObjects.push(bed);
+
+      // -----------------------------------------------------------------------
+      // 2. INFEED ROLLERS STATION (RIGHT SIDE): Grabs raw cane and pushes it LEFT
+      // Raw cane enters from RIGHT, rollers grip and push it toward chuck
+      // Position: RIGHT side at X = +52 (corrected for right-to-left flow)
+      // -----------------------------------------------------------------------
+      const infeedGroup = new THREE.Group();
+      infeedGroup.position.set(52, 46, 0);
+      infeedGroup.userData = { compKey: 'infeedRollers' };
+
+      // Housing sideplates
+      const sidePlateGeo = new THREE.BoxGeometry(18, 18, 2);
+      const plateF = new THREE.Mesh(sidePlateGeo, matFrame);
+      plateF.position.set(0, 0, 7.5);
+      plateF.castShadow = true;
+      infeedGroup.add(plateF);
+      const plateB = new THREE.Mesh(sidePlateGeo, matFrame);
+      plateB.position.set(0, 0, -7.5);
+      plateB.castShadow = true;
+      infeedGroup.add(plateB);
+
+      // 2 Pairs of V-Groove Rollers (Pair 1 at X = -4.5, Pair 2 at X = 4.5)
+      const rollerOuterGeo = new THREE.CylinderGeometry(3.6, 3.6, 12, 24);
+      const grooveGeo = new THREE.CylinderGeometry(2.4, 3.65, 3.5, 24);
+
+      [-4.5, 4.5].forEach(xOffset => {
+        // Top Roller (Y = +3.8)
+        const topR = new THREE.Group();
+        topR.position.set(xOffset, 3.8, 0);
+        const rMeshT = new THREE.Mesh(rollerOuterGeo, matChrome);
+        rMeshT.rotation.x = Math.PI / 2;
+        rMeshT.castShadow = true;
+        topR.add(rMeshT);
+        infeedGroup.add(topR);
+        infeedRollerMeshes.push({ group: topR, dir: 1 });
+
+        // Bottom Roller (Y = -3.8)
+        const botR = new THREE.Group();
+        botR.position.set(xOffset, -3.8, 0);
+        const rMeshB = new THREE.Mesh(rollerOuterGeo, matChrome);
+        rMeshB.rotation.x = Math.PI / 2;
+        rMeshB.castShadow = true;
+        botR.add(rMeshB);
+        infeedGroup.add(botR);
+        infeedRollerMeshes.push({ group: botR, dir: -1 });
+      });
+
+      scene.add(infeedGroup);
+      interactiveObjects.push(plateF, plateB);
+
+      // -----------------------------------------------------------------------
+      // 3. 3-JAW PEELING CHUCK & NEMA17 STEPPER MOTOR
+      // Positioned at X = -10, Y = 46, Z = 0. Chuck body rotates continuously!
+      // -----------------------------------------------------------------------
+      const chuckStationGroup = new THREE.Group();
+      chuckStationGroup.position.set(-10, 46, 0);
+      chuckStationGroup.userData = { compKey: 'peelingChuck' };
+
+      // Stationary Headstock Bearing Mount
+      const headstockGeo = new THREE.BoxGeometry(10, 22, 26);
+      const headstock = new THREE.Mesh(headstockGeo, matFrame);
+      headstock.position.set(-6, -2, 0);
+      headstock.castShadow = true;
+      chuckStationGroup.add(headstock);
+
+      // Rotating Chuck Subassembly (rotates about X-axis)
+      chuckRotorGroup = new THREE.Group();
+      chuckRotorGroup.position.set(0, 0, 0);
+
+      // Chuck Cylindrical Body
+      const chuckBodyGeo = new THREE.CylinderGeometry(11.5, 11.5, 9, 36);
+      const chuckBody = new THREE.Mesh(chuckBodyGeo, matChuckBody);
+      chuckBody.rotation.z = Math.PI / 2;
+      chuckBody.castShadow = true;
+      chuckRotorGroup.add(chuckBody);
+
+      // Central Bore through chuck for cane pass-through
+      const boreGeo = new THREE.CylinderGeometry(3.6, 3.6, 9.2, 24);
+      const boreMesh = new THREE.Mesh(boreGeo, matDarkMetal);
+      boreMesh.rotation.z = Math.PI / 2;
+      chuckRotorGroup.add(boreMesh);
+
+      // 3 Jaws spaced 120° apart with Angled HSS Blade Tips
+      for (let i = 0; i < 3; i++) {
+        const jawAngle = (i * 120) * (Math.PI / 180);
+        const jawGroup = new THREE.Group();
+        jawGroup.rotation.x = jawAngle;
+
+        // Radial jaw block
+        const jawBlock = new THREE.Mesh(new THREE.BoxGeometry(5.5, 4, 3.2), matDarkMetal);
+        jawBlock.position.set(1.5, 5.8, 0);
+        jawBlock.castShadow = true;
+        jawGroup.add(jawBlock);
+
+        // Angled hardened HSS cutting blade tip
+        const bladeGeo = new THREE.BoxGeometry(2.4, 1.4, 3.4);
+        const blade = new THREE.Mesh(bladeGeo, matChrome);
+        blade.position.set(4.0, 4.4, 0);
+        blade.rotation.z = (12 * Math.PI) / 180; // 12° cutting rake angle
+        blade.castShadow = true;
+        jawGroup.add(blade);
+
+        chuckRotorGroup.add(jawGroup);
+      }
+      chuckStationGroup.add(chuckRotorGroup);
+
+      // NEMA17 Stepper Motor mounted directly behind the chuck
+      const stepperGroup = new THREE.Group();
+      stepperGroup.position.set(-16, 0, 0);
+      stepperGroup.userData = { compKey: 'stepperMotor' };
+
+      const stepperBody = new THREE.Mesh(new THREE.BoxGeometry(4.2, 4.2, 4.5), matBlackPlastic);
+      stepperBody.castShadow = true;
+      stepperGroup.add(stepperBody);
+
+      const stepperFrontFace = new THREE.Mesh(new THREE.BoxGeometry(4.2, 4.2, 0.4), matChrome);
+      stepperFrontFace.position.set(2.35, 0, 0);
+      stepperGroup.add(stepperFrontFace);
+
+      // Visible brass helical shaft coupling
+      const coupler = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 4.2, 16), matBrass);
+      coupler.rotation.z = Math.PI / 2;
+      coupler.position.set(4.6, 0, 0);
+      stepperGroup.add(coupler);
+
+      chuckStationGroup.add(stepperGroup);
+      scene.add(chuckStationGroup);
+      interactiveObjects.push(headstock, chuckBody, stepperBody);
+
+      // -----------------------------------------------------------------------
+      // 4. DIAMETER SENSOR (VL53L0X): Between Chuck and Outfeed
+      // Position: X = 16, Y = 46, Z = 0
+      // -----------------------------------------------------------------------
+      const sensorGroup = new THREE.Group();
+      sensorGroup.position.set(16, 46, 0);
+      sensorGroup.userData = { compKey: 'diameterSensor' };
+
+      // Vertical mounting post clamped to bed
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 14, 16), matDarkMetal);
+      post.position.set(0, 4, -9);
+      post.castShadow = true;
+      sensorGroup.add(post);
+
+      const crossArm = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.5, 10), matDarkMetal);
+      crossArm.position.set(0, 10, -4);
+      sensorGroup.add(crossArm);
+
+      // Black optical sensor module
+      const sensorBox = new THREE.Mesh(new THREE.BoxGeometry(3.2, 2.2, 3), matBlackPlastic);
+      sensorBox.position.set(0, 9.5, 0);
+      sensorBox.castShadow = true;
+      sensorGroup.add(sensorBox);
+
+      // Red laser indicator beam & target spot
+      const laserGeo = new THREE.CylinderGeometry(0.08, 0.08, 8.5, 8);
+      const laserMat = new THREE.MeshBasicMaterial({ color: 0xff0033, transparent: true, opacity: 0.8 });
+      laserLineMesh = new THREE.Mesh(laserGeo, laserMat);
+      laserLineMesh.position.set(0, 4.6, 0);
+      sensorGroup.add(laserLineMesh);
+
+      laserDotMesh = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 12), new THREE.MeshBasicMaterial({ color: 0xff1144 }));
+      laserDotMesh.position.set(0, 0.8, 0);
+      sensorGroup.add(laserDotMesh);
+
+      scene.add(sensorGroup);
+      interactiveObjects.push(sensorBox, post);
+
+      // -----------------------------------------------------------------------
+      // 5. OUTFEED ROLLERS STATION (LEFT SIDE): Pulls peeled cane out to the left
+      // Peeled cane exits chuck and is pulled LEFT by outfeed rollers
+      // Position: LEFT side at X = -48 (corrected for right-to-left flow)
+      // -----------------------------------------------------------------------
+      const outfeedGroup = new THREE.Group();
+      outfeedGroup.position.set(-48, 46, 0);
+      outfeedGroup.userData = { compKey: 'outfeedRollers' };
+
+      const outPlateF = new THREE.Mesh(sidePlateGeo, matFrame);
+      outPlateF.position.set(0, 0, 7.5);
+      outPlateF.castShadow = true;
+      outfeedGroup.add(outPlateF);
+      const outPlateB = new THREE.Mesh(sidePlateGeo, matFrame);
+      outPlateB.position.set(0, 0, -7.5);
+      outPlateB.castShadow = true;
+      outfeedGroup.add(outPlateB);
+
+      [-4.5, 4.5].forEach(xOffset => {
+        const topR = new THREE.Group();
+        topR.position.set(xOffset, 3.8, 0);
+        const rMeshT = new THREE.Mesh(rollerOuterGeo, matChrome);
+        rMeshT.rotation.x = Math.PI / 2;
+        rMeshT.castShadow = true;
+        topR.add(rMeshT);
+        outfeedGroup.add(topR);
+        outfeedRollerMeshes.push({ group: topR, dir: 1 });
+
+        const botR = new THREE.Group();
+        botR.position.set(xOffset, -3.8, 0);
+        const rMeshB = new THREE.Mesh(rollerOuterGeo, matChrome);
+        rMeshB.rotation.x = Math.PI / 2;
+        rMeshB.castShadow = true;
+        botR.add(rMeshB);
+        outfeedGroup.add(botR);
+        outfeedRollerMeshes.push({ group: botR, dir: -1 });
+      });
+
+      scene.add(outfeedGroup);
+      interactiveObjects.push(outPlateF, outPlateB);
+
+      // -----------------------------------------------------------------------
+      // 6. MOTORIZED TAKE-UP REEL: Angled post, guide pulleys, spooling flat ribbon
+      // Position: X = 28, Y = 66, Z = 14
+      // -----------------------------------------------------------------------
+      const reelStationGroup = new THREE.Group();
+      reelStationGroup.position.set(28, 46, 14);
+      reelStationGroup.userData = { compKey: 'takeupReel' };
+
+      // Angled black mounting post
+      const reelPost = new THREE.Mesh(new THREE.BoxGeometry(2.5, 26, 2.5), matDarkMetal);
+      reelPost.position.set(0, 10, 0);
+      reelPost.rotation.z = -0.25;
+      reelPost.castShadow = true;
+      reelStationGroup.add(reelPost);
+
+      // Guide pulleys
+      const guidePulleyGeo = new THREE.CylinderGeometry(1.6, 1.6, 2, 16);
+      const guideP1 = new THREE.Mesh(guidePulleyGeo, matBrass);
+      guideP1.rotation.x = Math.PI / 2;
+      guideP1.position.set(-18, 6, -6);
+      reelStationGroup.add(guideP1);
+
+      const guideP2 = new THREE.Mesh(guidePulleyGeo, matBrass);
+      guideP2.rotation.x = Math.PI / 2;
+      guideP2.position.set(-8, 14, -2);
+      reelStationGroup.add(guideP2);
+
+      // Rotating Reel Drum & Flanges
+      takeupReelRotor = new THREE.Group();
+      takeupReelRotor.position.set(3, 21, 0);
+
+      const flangeGeo = new THREE.CylinderGeometry(8, 8, 0.6, 28);
+      const flangeL = new THREE.Mesh(flangeGeo, matFrame);
+      flangeL.rotation.x = Math.PI / 2;
+      flangeL.position.z = 2.8;
+      takeupReelRotor.add(flangeL);
+
+      const flangeR = new THREE.Mesh(flangeGeo, matFrame);
+      flangeR.rotation.x = Math.PI / 2;
+      flangeR.position.z = -2.8;
+      takeupReelRotor.add(flangeR);
+
+      // Central core drum
+      const drumCore = new THREE.Mesh(new THREE.CylinderGeometry(3.5, 3.5, 5, 24), matDarkMetal);
+      drumCore.rotation.x = Math.PI / 2;
+      takeupReelRotor.add(drumCore);
+
+      // Winding peel skin coil (radius expands with run time)
+      const coilGeo = new THREE.CylinderGeometry(3.7, 3.7, 4.8, 24);
+      takeupCoilMesh = new THREE.Mesh(coilGeo, matPeeledCane);
+      takeupCoilMesh.rotation.x = Math.PI / 2;
+      takeupReelRotor.add(takeupCoilMesh);
+
+      reelStationGroup.add(takeupReelRotor);
+
+      // Flat peeled ribbon strip connecting chuck exit to reel
+      const ribbonCurve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(-36, 1, -14),
+        new THREE.Vector3(-18, 6, -6),
+        new THREE.Vector3(-8, 14, -2),
+        new THREE.Vector3(3, 21, 0)
+      ]);
+      const ribbonTubeGeo = new THREE.TubeGeometry(ribbonCurve, 32, 0.45, 6, false);
+      ribbonMesh = new THREE.Mesh(ribbonTubeGeo, matPeeledCane);
+      reelStationGroup.add(ribbonMesh);
+
+      scene.add(reelStationGroup);
+      interactiveObjects.push(reelPost, flangeL, flangeR);
+
+      // -----------------------------------------------------------------------
+      // 7. 0.75 kW AC INDUCTION MOTOR & BELT-AND-PULLEY TRANSMISSION (Under-Bed)
+      // Position: Under frame at X = -45, Y = 18, Z = -12
+      // -----------------------------------------------------------------------
+      const motorGroup = new THREE.Group();
+      motorGroup.position.set(-45, 18, -12);
+      motorGroup.userData = { compKey: 'inductionMotor' };
+
+      // Motor cylindrical housing
+      const motorBody = new THREE.Mesh(new THREE.CylinderGeometry(6.5, 6.5, 16, 24), matInductionMotor);
+      motorBody.rotation.z = Math.PI / 2;
+      motorBody.castShadow = true;
+      motorGroup.add(motorBody);
+
+      // Cooling fins & Terminal box
+      const termBox = new THREE.Mesh(new THREE.BoxGeometry(5, 3, 5), matDarkMetal);
+      termBox.position.set(0, 7.5, 0);
+      motorGroup.add(termBox);
+
+      // Drive Pulley (on motor shaft)
+      motorPulley = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.2, 2.5, 24), matDarkMetal);
+      motorPulley.rotation.z = Math.PI / 2;
+      motorPulley.position.set(10.5, 0, 0);
+      motorPulley.castShadow = true;
+      motorGroup.add(motorPulley);
+
+      // Intermediate Driven Pulley (under bed at Y = 32)
+      intermediatePulley = new THREE.Mesh(new THREE.CylinderGeometry(5.2, 5.2, 2.5, 24), matDarkMetal);
+      intermediatePulley.rotation.z = Math.PI / 2;
+      intermediatePulley.position.set(10.5, 14, 0);
+      intermediatePulley.castShadow = true;
+      motorGroup.add(intermediatePulley);
+
+      // Connecting V-Belt loop (flattened torus)
+      const beltGeo = new THREE.TorusGeometry(7.2, 0.6, 8, 32);
+      beltTorus = new THREE.Mesh(beltGeo, new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.9 }));
+      beltTorus.rotation.y = Math.PI / 2;
+      beltTorus.scale.set(0.6, 1.9, 1);
+      beltTorus.position.set(10.5, 7, 0);
+      motorGroup.add(beltTorus);
+
+      scene.add(motorGroup);
+      interactiveObjects.push(motorBody, termBox, motorPulley);
+
+      // -----------------------------------------------------------------------
+      // 8. CONTROL BOX: Light grey metal box on tall post at far right
+      // Position: X = 74, Y = 50, Z = 16
+      // -----------------------------------------------------------------------
+      const controlBoxGroup = new THREE.Group();
+      controlBoxGroup.position.set(74, 35, 16);
+      controlBoxGroup.userData = { compKey: 'controlBox' };
+
+      const boxPost = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 16, 16), matDarkMetal);
+      boxPost.position.set(0, 8, 0);
+      boxPost.castShadow = true;
+      controlBoxGroup.add(boxPost);
+
+      const boxBody = new THREE.Mesh(new THREE.BoxGeometry(11, 15, 7), matControlBox);
+      boxBody.position.set(0, 20, 0);
+      boxBody.rotation.y = -0.35; // angled toward operator
+      boxBody.castShadow = true;
+      controlBoxGroup.add(boxBody);
+
+      // Blue LCD status display screen
+      const lcdScreen = new THREE.Mesh(
+        new THREE.BoxGeometry(7.5, 3.5, 0.2),
+        new THREE.MeshBasicMaterial({ color: 0x0284c7 })
+      );
+      lcdScreen.position.set(0, 23.5, 3.6);
+      lcdScreen.rotation.y = -0.35;
+      controlBoxGroup.add(lcdScreen);
+
+      scene.add(controlBoxGroup);
+      interactiveObjects.push(boxBody, boxPost);
+
+      // -----------------------------------------------------------------------
+      // 9. THE CANE / POLE: Dual-texture tapered cylinder (Raw RIGHT, Peeled LEFT)
+      // Logical flow: Raw cane enters from feed rollers (right) → travels left through chuck → exits peeled (left)
+      // -----------------------------------------------------------------------
+      caneGroup = new THREE.Group();
+      caneGroup.position.set(0, 46, 0);
+
+      // Raw Cane Section (Bark-tan, entering from RIGHT side through feed rollers)
+      const rawGeo = new THREE.CylinderGeometry(0.72, 0.85, 95, 24);
+      rawCaneMesh = new THREE.Mesh(rawGeo, matRawCane);
+      rawCaneMesh.rotation.z = Math.PI / 2;
+      rawCaneMesh.position.set(57.5, 0, 0); // RIGHT side (+X)
+      rawCaneMesh.castShadow = true;
+      caneGroup.add(rawCaneMesh);
+
+      // Peeled Cane Section (Silky cream wood core, exiting chuck on LEFT side)
+      const peeledGeo = new THREE.CylinderGeometry(0.58, 0.58, 95, 24);
+      peeledCaneMesh = new THREE.Mesh(peeledGeo, matPeeledCane);
+      peeledCaneMesh.rotation.z = Math.PI / 2;
+      peeledCaneMesh.position.set(-37.5, 0, 0); // LEFT side (-X)
+      peeledCaneMesh.castShadow = true;
+      caneGroup.add(peeledCaneMesh);
+
+      scene.add(caneGroup);
+    }
+
+    // =========================================================================
+    // PARTICLE SYSTEM: Curly Light-Tan Wood Shavings Spawning at Chuck Jaws
+    // =========================================================================
+    function buildParticleSystem() {
+      particleGeo = new THREE.BufferGeometry();
+      particlePositions = new Float32Array(MAX_PARTICLES * 3);
+      particleVelocities = [];
+
+      for (let i = 0; i < MAX_PARTICLES; i++) {
+        particlePositions[i * 3] = -10;
+        particlePositions[i * 3 + 1] = 46;
+        particlePositions[i * 3 + 2] = 0;
+        particleVelocities.push({
+          vx: (Math.random() - 0.5) * 0.3,
+          vy: Math.random() * 0.4 + 0.1,
+          vz: (Math.random() - 0.5) * 0.4,
+          life: Math.random()
+        });
+      }
+
+      particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+      const pMat = new THREE.PointsMaterial({
+        color: 0xeed6aa,
+        size: 0.9,
+        transparent: true,
+        opacity: 0.85
+      });
+
+      particleSystem = new THREE.Points(particleGeo, pMat);
+      scene.add(particleSystem);
+    }
+
+    function updateParticles() {
+      if (!particleSystem) return;
+      const positions = particleGeo.attributes.position.array;
+
+      for (let i = 0; i < MAX_PARTICLES; i++) {
+        if (machineState === 'RUNNING' || currentSpeedRatio > 0.05) {
+          const v = particleVelocities[i];
+          positions[i * 3] += v.vx * currentSpeedRatio;
+          positions[i * 3 + 1] += v.vy * currentSpeedRatio;
+          positions[i * 3 + 2] += v.vz * currentSpeedRatio;
+          v.vy -= 0.015; // gravity
+
+          v.life -= 0.03 * currentSpeedRatio;
+          if (v.life <= 0 || positions[i * 3 + 1] < 36.5) {
+            // Respawn at chuck blade contact zone (X = -10, Y = 46, Z = 0)
+            const angle = Math.random() * Math.PI * 2;
+            const rad = 1.0 + Math.random() * 0.5;
+            positions[i * 3] = -9.5 + (Math.random() - 0.5) * 1.5;
+            positions[i * 3 + 1] = 46 + Math.sin(angle) * rad;
+            positions[i * 3 + 2] = Math.cos(angle) * rad;
+
+            v.vx = (Math.random() - 0.2) * 0.4;
+            v.vy = Math.random() * 0.35 + 0.05;
+            v.vz = (Math.random() - 0.5) * 0.5;
+            v.life = 1.0;
+          }
+        }
+      }
+      particleGeo.attributes.position.needsUpdate = true;
+    }
+
+    // =========================================================================
+    // ANIMATION & KINEMATICS ENGINE
+    // =========================================================================
+    function animate() {
+      requestAnimationFrame(animate);
+
+      // State machine speed smoothing (Acceleration / Deceleration)
+      if (machineState === 'RUNNING') {
+        currentSpeedRatio = Math.min(1.0, currentSpeedRatio + 0.04);
+      } else if (machineState === 'STOPPING') {
+        currentSpeedRatio = Math.max(0.0, currentSpeedRatio - 0.025);
+        if (currentSpeedRatio <= 0.0) {
+          machineState = 'STOPPED';
+          updateStateUI();
+        }
+      } else if (machineState === 'EMERGENCY') {
+        currentSpeedRatio = 0.0;
+      }
+
+      if (currentSpeedRatio > 0) {
+        const dt = 0.016;
+        const linearSpeed = (feedSpeedSetting * 10.0 / 6.0) * currentSpeedRatio; // scaled units/sec
+
+        // 1. Cane translation RIGHT -> LEFT (correct flow direction)
+        caneTravelDist += linearSpeed * dt;
+        if (caneTravelDist > 95) caneTravelDist = 0; // loop feeding new cane
+
+        // Raw cane enters from RIGHT (+X) and travels LEFT (-X direction)
+        rawCaneMesh.position.x = 57.5 - (caneTravelDist % 95);
+        // Peeled cane exits on LEFT (-X) continuing LEFT
+        peeledCaneMesh.position.x = -37.5 - (caneTravelDist % 95);
+
+        // 2. Rollers rotation (Surface speed matched)
+        const rollerSpin = (linearSpeed / 3.6) * 0.8;
+        infeedRollerMeshes.forEach(r => { r.group.rotation.z += rollerSpin * r.dir; });
+        outfeedRollerMeshes.forEach(r => { r.group.rotation.z += rollerSpin * r.dir; });
+
+        // 3. 3-Jaw Peeling Chuck Continuous Rotation
+        const chuckRPM = Math.round(feedSpeedSetting * 70 * currentSpeedRatio);
+        if (chuckRotorGroup) {
+          chuckRotorGroup.rotation.x += (chuckRPM * 2 * Math.PI / 60) * dt;
+        }
+
+        // 4. Motor pulleys & belt spinning
+        if (motorPulley) motorPulley.rotation.x += 0.35 * currentSpeedRatio;
+        if (intermediatePulley) intermediatePulley.rotation.x += 0.22 * currentSpeedRatio;
+
+        // 5. Take-up reel rotation & slow growth
+        if (takeupReelRotor) {
+          takeupReelRotor.rotation.z -= 0.04 * currentSpeedRatio;
+          totalHarvestedSkin += (feedSpeedSetting / 60) * dt * currentSpeedRatio;
+          reelRadiusGrowth = Math.min(1.8, totalHarvestedSkin * 0.08);
+          takeupCoilMesh.scale.set(1 + reelRadiusGrowth * 0.4, 1, 1 + reelRadiusGrowth * 0.4);
+        }
+
+        // 6. Live Diameter Sensing calculation (Simulate taper along pole)
+        const localPos = (caneTravelDist + 16) * 0.1;
+        const liveDia = (14.0 + Math.sin(localPos * 1.5) * 1.8 + Math.cos(localPos * 3.2) * 0.6).toFixed(1);
+        document.getElementById('dia-val').innerText = `${liveDia} mm`;
+        document.getElementById('rpm-val').innerText = `${chuckRPM} RPM`;
+        document.getElementById('reel-val').innerText = `${totalHarvestedSkin.toFixed(1)} m`;
+
+        // Laser spot pulsation
+        if (laserDotMesh) {
+          laserDotMesh.scale.setScalar(0.9 + Math.sin(Date.now() * 0.01) * 0.2);
+        }
+
+        updateParticles();
+      } else {
+        document.getElementById('rpm-val').innerText = `0 RPM`;
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    // =========================================================================
+    // USER CONTROLS & MACHINE ACTIONS
+    // =========================================================================
+    function startMachine() {
+      if (machineState === 'EMERGENCY') {
+        document.getElementById('btn-estop').classList.remove('active-lock');
+      }
+      machineState = 'RUNNING';
+      updateStateUI();
+    }
+
+    function stopMachine() {
+      if (machineState === 'RUNNING') {
+        machineState = 'STOPPING';
+        updateStateUI();
+      }
+    }
+
+    function emergencyStop() {
+      machineState = 'EMERGENCY';
+      currentSpeedRatio = 0.0;
+      document.getElementById('btn-estop').classList.add('active-lock');
+      updateStateUI();
+    }
+
+    function updateFeedSpeed(val) {
+      feedSpeedSetting = parseFloat(val);
+      document.getElementById('feed-val').innerText = `${feedSpeedSetting.toFixed(1)} m/min`;
+    }
+
+    function updateStateUI() {
+      const pill = document.getElementById('state-pill');
+      const dot = document.getElementById('state-dot');
+      const text = document.getElementById('state-text');
+
+      if (machineState === 'RUNNING') {
+        pill.style.background = 'rgba(34, 197, 94, 0.15)';
+        pill.style.color = '#22c55e';
+        pill.style.borderColor = '#22c55e';
+        dot.style.background = '#22c55e';
+        text.innerText = 'RUNNING';
+      } else if (machineState === 'STOPPING') {
+        pill.style.background = 'rgba(234, 179, 8, 0.15)';
+        pill.style.color = '#eab308';
+        pill.style.borderColor = '#eab308';
+        dot.style.background = '#eab308';
+        text.innerText = 'DECELERATING';
+      } else if (machineState === 'EMERGENCY') {
+        pill.style.background = 'rgba(239, 68, 68, 0.2)';
+        pill.style.color = '#ef4444';
+        pill.style.borderColor = '#ef4444';
+        dot.style.background = '#ef4444';
+        text.innerText = 'EMERGENCY STOP';
+      } else {
+        pill.style.background = 'rgba(148, 163, 184, 0.15)';
+        pill.style.color = '#94a3b8';
+        pill.style.borderColor = '#94a3b8';
+        dot.style.background = '#94a3b8';
+        text.innerText = 'STANDBY';
+      }
+    }
+
+    // =========================================================================
+    // CAMERA PRESET SMOOTH TRANSITIONS
+    // =========================================================================
+    function setCamera(preset) {
+      document.querySelectorAll('.cam-btn').forEach(btn => btn.classList.remove('active'));
+      event?.target?.classList?.add('active');
+
+      let targetPos, targetLookAt;
+      if (preset === 'iso') {
+        targetPos = new THREE.Vector3(95, 65, 115);
+        targetLookAt = new THREE.Vector3(0, 36, 0);
+      } else if (preset === 'chuck') {
+        // Zoom right in on the 3-jaw rotary chuck close-up
+        targetPos = new THREE.Vector3(12, 54, 28);
+        targetLookAt = new THREE.Vector3(-10, 46, 0);
+      } else if (preset === 'sensor') {
+        targetPos = new THREE.Vector3(26, 56, 22);
+        targetLookAt = new THREE.Vector3(16, 48, 0);
+      } else if (preset === 'feed') {
+        targetPos = new THREE.Vector3(35, 58, 38);
+        targetLookAt = new THREE.Vector3(52, 46, 0);
+      } else if (preset === 'motor') {
+        targetPos = new THREE.Vector3(-25, 20, -45);
+        targetLookAt = new THREE.Vector3(-45, 18, -12);
+      }
+
+      smoothCameraMove(targetPos, targetLookAt);
+    }
+
+    function smoothCameraMove(endPos, endTarget) {
+      const startPos = camera.position.clone();
+      const startTarget = controls.target.clone();
+      const duration = 750;
+      const startTime = performance.now();
+
+      function step(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(1.0, elapsed / duration);
+        const ease = 0.5 - Math.cos(progress * Math.PI) / 2;
+
+        camera.position.lerpVectors(startPos, endPos, ease);
+        controls.target.lerpVectors(startTarget, endTarget, ease);
+
+        if (progress < 1.0) {
+          requestAnimationFrame(step);
+        }
+      }
+      requestAnimationFrame(step);
+    }
+
+    // =========================================================================
+    // HOVER RAYCASTER & INTERACTIVE TOOLTIP
+    // =========================================================================
+    function onMouseMove(event) {
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(interactiveObjects, true);
+
+      if (intersects.length > 0) {
+        let obj = intersects[0].object;
+        while (obj && !obj.userData?.compKey && obj.parent) {
+          obj = obj.parent;
+        }
+
+        if (obj && obj.userData?.compKey) {
+          const info = COMPONENT_METADATA[obj.userData.compKey];
+          if (info) {
+            ttTitle.innerText = info.name;
+            ttDesc.innerText = info.desc;
+            tooltip.style.left = `${event.clientX}px`;
+            tooltip.style.top = `${event.clientY}px`;
+            tooltip.classList.add('visible');
+            document.body.style.cursor = 'pointer';
+            return;
+          }
+        }
+      }
+
+      tooltip.classList.remove('visible');
+      document.body.style.cursor = 'default';
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    window.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
